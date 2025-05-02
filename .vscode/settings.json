@@ -1,0 +1,9 @@
+{
+    // A fontok felsorolása prioritási sorrendben.
+    "editor.fontFamily": "'Fira Code', Consolas, 'Courier New', monospace",
+    // Ligatúrák használata (ha a font támogatja).
+    "editor.fontLigatures": true,
+    // Opció: nagyobb sorköz, ha kényelmesebb így olvasni
+    "editor.lineHeight": 24
+  }
+  
