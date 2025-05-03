@@ -5,7 +5,8 @@ import { useEffect, useState, useRef } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { supabase } from "@/lib/supabaseClient";
-import { UserCircle, Menu, X } from "lucide-react";
+import { UserCircle, Menu, X, LogOut } from "lucide-react";
+import { useRouter } from "next/navigation";
 
 export default function Navbar() {
   const [isLoggedIn, setIsLoggedIn]   = useState(false);
@@ -14,20 +15,22 @@ export default function Navbar() {
   const [avatarUrl, setAvatarUrl]     = useState<string | null>(null);
   const desktopMenuRef = useRef<HTMLDivElement>(null);
   const mobileMenuRef  = useRef<HTMLDivElement>(null);
+  const router        = useRouter();
 
-  // centralize profile fetch logic
+  // Profiladatok betöltése
   const fetchProfile = async () => {
-    const { data: { session } } = await supabase.auth.getSession();
+    const { data } = await supabase.auth.getSession();
+    const session = data.session;
     setIsLoggedIn(!!session);
     if (session?.user) {
-      const { data, error } = await supabase
+      const { data: profile, error } = await supabase
         .from("profiles")
-        .select("username,avatar_url")
+        .select("username, avatar_url")
         .eq("id", session.user.id)
         .single();
-      if (!error && data) {
-        setUsername(data.username);
-        setAvatarUrl(data.avatar_url);
+      if (!error && profile) {
+        setUsername(profile.username);
+        setAvatarUrl(profile.avatar_url);
       }
     } else {
       setUsername(null);
@@ -35,19 +38,16 @@ export default function Navbar() {
     }
   };
 
+  // mount + auth változás + külső "profile-updated" esemény
   useEffect(() => {
-    // initial load + auth changes
     fetchProfile();
     const { data: sub } = supabase.auth.onAuthStateChange(() => {
       fetchProfile();
     });
-
-    // listen to custom event from ProfileSection
     const onProfileUpdated = () => {
       fetchProfile();
     };
     window.addEventListener("profile-updated", onProfileUpdated);
-
     return () => {
       sub?.subscription.unsubscribe();
       window.removeEventListener("profile-updated", onProfileUpdated);
@@ -55,14 +55,17 @@ export default function Navbar() {
   }, []);
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
-    setIsLoggedIn(false);
-    window.location.href = "/";
+    const { error } = await supabase.auth.signOut();
+    if (error) {
+      console.error("Kijelentkezés hiba:", error.message);
+      return;
+    }
+    router.replace("/auth/login");
   };
 
-  // close dropdown if clicking outside
+  // kattintáson kívüli zárás
   useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
+    const onClick = (e: MouseEvent) => {
       const t = e.target as Node;
       if (
         menuOpen &&
@@ -72,55 +75,53 @@ export default function Navbar() {
         setMenuOpen(false);
       }
     };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+    document.addEventListener("mousedown", onClick);
+    return () => document.removeEventListener("mousedown", onClick);
   }, [menuOpen]);
 
   return (
-    <nav className="bg-[#1a1a1a] shadow-md relative z-50">
-      <div className="container mx-auto flex items-center justify-between py-4 px-4 md:px-6">
-        {/* mobile burger */}
-        <div className="flex items-center">
-          {isLoggedIn && (
-            <button
-              onClick={() => setMenuOpen(!menuOpen)}
-              className="md:hidden text-white p-2 rounded transition"
-              aria-label="Mobil menü"
-            >
-              {menuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-            </button>
-          )}
-        </div>
-
-        {/* logo */}
-        <Link
-          href="/"
-          className="absolute left-1/2 transform -translate-x-1/2 text-white text-2xl font-bold hover:text-blue-400 transition"
-        >
-          blipblop
+    <nav className="sticky top-0 z-50 backdrop-blur-md bg-gradient-to-r from-indigo-950 via-black to-indigo-950 bg-opacity-75 shadow-lg h-16">
+      <div className="container mx-auto relative flex items-center justify-between h-full px-4 md:px-6">
+        {/* Logo */}
+        <Link href="/" className="flex items-center space-x-2 h-full">
+          <Image
+            src="/blipblop_big_nobg.png"
+            alt="BlipBlop Logo"
+            width={64}
+            height={64}
+            className="hover:scale-110 transition-transform duration-300"
+            priority
+          />
         </Link>
 
-        {/* desktop menu */}
-        <div className="flex items-center gap-6">
+        {/* Title - only on desktop, centered */}
+        <div className="hidden md:block absolute left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2">
+          <Link href="/" className="text-white text-xl font-semibold hover:text-indigo-300 transition">
+            blipblop
+          </Link>
+        </div>
+
+        {/* Desktop Menu */}
+        <div className="hidden md:flex items-center gap-6">
           {!isLoggedIn ? (
             <Link
               href="/auth/login"
-              className="text-white hover:text-blue-400 font-semibold transition"
+              className="text-white hover:text-indigo-300 font-semibold transition"
             >
               Bejelentkezés
             </Link>
           ) : (
-            <div className="hidden md:flex items-center gap-6" ref={desktopMenuRef}>
+            <>
               <Link
                 href="/upload"
-                className="bg-blue-500 hover:bg-blue-400 text-white font-semibold py-2 px-4 rounded-xl transition"
+                className="bg-indigo-600 hover:bg-indigo-500 text-white font-semibold py-2 px-4 rounded-lg shadow-md hover:shadow-xl transition"
               >
                 Feltöltés
               </Link>
-              <div className="relative">
+              <div className="relative" ref={desktopMenuRef}>
                 <button
-                  onClick={() => setMenuOpen(!menuOpen)}
-                  className="flex items-center justify-center w-10 h-10 rounded-full bg-[#333] hover:bg-[#555] overflow-hidden"
+                  onClick={() => setMenuOpen(o => !o)}
+                  className="flex items-center justify-center w-10 h-10 rounded-full bg-indigo-700 hover:bg-indigo-600 overflow-hidden shadow-md transition"
                 >
                   {avatarUrl ? (
                     <Image
@@ -136,7 +137,7 @@ export default function Navbar() {
                   )}
                 </button>
                 {menuOpen && (
-                  <div className="absolute top-full right-0 mt-2 w-48 bg-[#1f1f1f] rounded-lg shadow-lg overflow-hidden animate-fadeInScale">
+                  <div className="absolute right-0 mt-2 w-48 bg-[#1f1f1f] rounded-lg shadow-xl overflow-hidden animate-fadeInScale">
                     {username && (
                       <div className="px-4 py-2 text-sm text-gray-200 border-b border-gray-700">
                         {username}
@@ -144,83 +145,78 @@ export default function Navbar() {
                     )}
                     <Link
                       href="/"
-                      className="block px-4 py-3 text-sm text-white hover:bg-blue-500 transition"
                       onClick={() => setMenuOpen(false)}
+                      className="block px-4 py-3 text-sm text-white hover:bg-indigo-500 transition"
                     >
                       Kezdőlap
                     </Link>
                     <Link
                       href="/dashboard?tab=videos"
-                      className="block px-4 py-3 text-sm text-white hover:bg-blue-500 transition"
                       onClick={() => setMenuOpen(false)}
+                      className="block px-4 py-3 text-sm text-white hover:bg-indigo-500 transition"
                     >
                       Saját videóim
                     </Link>
                     <Link
                       href="/dashboard?tab=profile"
-                      className="block px-4 py-3 text-sm text-white hover:bg-blue-500 transition"
                       onClick={() => setMenuOpen(false)}
+                      className="block px-4 py-3 text-sm text-white hover:bg-indigo-500 transition"
                     >
                       Profil
                     </Link>
                     <button
                       onClick={handleLogout}
-                      className="block w-full text-left px-4 py-3 text-sm text-white hover:bg-blue-500 transition"
+                      className="flex items-center gap-2 w-full px-4 py-3 text-sm text-white hover:bg-indigo-500 transition"
                     >
-                      Kijelentkezés
+                      <LogOut size={16} /> Kijelentkezés
                     </button>
                   </div>
                 )}
               </div>
-            </div>
+            </>
           )}
         </div>
+
+        {/* Mobile Menu Toggle */}
+        {isLoggedIn && (
+          <button
+            onClick={() => setMenuOpen(o => !o)}
+            className="md:hidden text-white p-2 hover:text-indigo-300 transition"
+            aria-label="Mobil menü"
+          >
+            {menuOpen ? <X size={24} /> : <Menu size={24} />}
+          </button>
+        )}
       </div>
 
-      {/* mobile drawer */}
+      {/* Mobile Menu */}
       {isLoggedIn && menuOpen && (
         <div
           ref={mobileMenuRef}
-          className="md:hidden absolute top-full left-0 right-0 bg-[#1a1a1a] shadow-lg animate-slideDown"
+          className="md:hidden bg-[#1a1a1a] px-6 py-4 shadow-lg animate-slideDown space-y-2"
         >
           {username && (
-            <div className="px-6 py-3 text-sm text-gray-200 border-b border-gray-700">
+            <div className="text-sm text-gray-200 border-b border-gray-700 pb-2">
               {username}
             </div>
           )}
-          <Link
-            href="/"
-            className="block px-6 py-4 text-white hover:bg-[#333] transition"
-            onClick={() => setMenuOpen(false)}
-          >
+          <Link href="/" onClick={() => setMenuOpen(false)} className="block px-6 py-3 text-white hover:bg-[#333] rounded-lg transition">
             Kezdőlap
           </Link>
-          <Link
-            href="/upload"
-            className="block px-6 py-4 text-white hover:bg-[#333] transition"
-            onClick={() => setMenuOpen(false)}
-          >
+          <Link href="/upload" onClick={() => setMenuOpen(false)} className="block px-6 py-3 text-white hover:bg-[#333] rounded-lg transition">
             Feltöltés
           </Link>
-          <Link
-            href="/dashboard?tab=videos"
-            className="block px-6 py-4 text-white hover:bg-[#333] transition"
-            onClick={() => setMenuOpen(false)}
-          >
+          <Link href="/dashboard?tab=videos" onClick={() => setMenuOpen(false)} className="block px-6 py-3 text-white hover:bg-[#333] rounded-lg transition">
             Saját videóim
           </Link>
-          <Link
-            href="/dashboard?tab=profile"
-            className="block px-6 py-4 text-white hover:bg-[#333] transition"
-            onClick={() => setMenuOpen(false)}
-          >
+          <Link href="/dashboard?tab=profile" onClick={() => setMenuOpen(false)} className="block px-6 py-3 text-white hover:bg-[#333] rounded-lg transition">
             Profil
           </Link>
           <button
             onClick={handleLogout}
-            className="w-full text-left px-6 py-4 text-white hover:bg-[#333] transition"
+            className="flex items-center gap-2 w-full px-6 py-3 text-white hover:bg-[#333] rounded-lg transition"
           >
-            Kijelentkezés
+            <LogOut size={16} /> Kijelentkezés
           </button>
         </div>
       )}

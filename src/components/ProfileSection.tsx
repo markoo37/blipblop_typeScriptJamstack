@@ -92,7 +92,6 @@ export function ProfileSection() {
     else if (avatarDeleted) {
       updates.avatar_url = null;
 
-      // felsoroljuk a bucket gyökerét, és töröljük a user.id-vel kezdődő fájlokat
       const { data: files, error: listErr } = await supabase
         .storage
         .from("avatars")
@@ -128,7 +127,10 @@ export function ProfileSection() {
     setAvatarDeleted(false);
     setAvatarFile(null);
     setPreviewUrl(null);
+
+    // Esemény a Navbar frissítéséhez
     window.dispatchEvent(new Event("profile-updated"));
+
     setSaving(false);
   };
 

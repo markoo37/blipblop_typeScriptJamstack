@@ -35,6 +35,7 @@ export default function LoginPage() {
       .single();
 
     if (profileError || !profile) {
+      setPassword("");
       setErrorMessage("Hibás felhasználónév vagy jelszó.");
       return;
     }
@@ -47,9 +48,10 @@ export default function LoginPage() {
     });
 
     if (loginError) {
+      setPassword("");
       setErrorMessage("Hibás felhasználónév vagy jelszó.");
     } else {
-      router.push("/");
+      setTimeout(() => router.push("/"), 100);
     }
   };
 

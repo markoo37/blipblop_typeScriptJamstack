@@ -6,6 +6,7 @@ import Link from "next/link";
 import { supabase } from "@/lib/supabaseClient";
 import { Listbox, Transition } from "@headlessui/react";
 import { ChevronDown, Check } from "lucide-react";
+import { SearchBar } from "@/components/SearchBar";
 
 interface Category {
   id: string;
@@ -22,6 +23,7 @@ interface Video {
 }
 
 export default function HomePage() {
+  const [searchTerm, setSearchTerm] = useState("");
   const [categories, setCategories] = useState<Category[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [videos, setVideos] = useState<Video[]>([]);
@@ -52,17 +54,24 @@ export default function HomePage() {
       if (selectedCategory !== "all") {
         query = query.eq("category_id", selectedCategory);
       }
+
+      if (searchTerm.trim()){
+        query = query.ilike("title", `%${searchTerm.trim()}%`)
+      }
+
       const { data, error } = await query;
       if (error) console.error("Videók lekérése hiba:", error.message);
       else setVideos(data);
       setLoadingVideos(false);
     })();
-  }, [selectedCategory]);
+  }, [selectedCategory, searchTerm]);
 
   return (
     <main className="min-h-screen bg-[var(--background)] p-6">
       <h1 className="text-4xl font-bold text-[var(--foreground)] mb-6">Videók</h1>
 
+      {/*Kereső komponens */}
+      <SearchBar value={searchTerm} onChange={setSearchTerm}/>
       {/* Kategória szűrő */}
       <div className="mb-6">
         {loadingCats ? (
@@ -115,7 +124,7 @@ export default function HomePage() {
 
       {/* Videók rács */}
       {loadingVideos ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 animate-fadeInScale">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {Array.from({ length: 6 }).map((_, idx) => (
             <div key={idx} className="animate-pulse bg-[#2a2a2a] rounded-lg h-48" />
           ))}
